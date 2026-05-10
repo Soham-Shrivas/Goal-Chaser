@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: goal-chaser
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    disk:
+      enabled: true
+      mountPath: /var/data
+      size: 1GB
