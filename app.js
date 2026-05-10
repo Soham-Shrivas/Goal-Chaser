@@ -1186,17 +1186,17 @@ async function loadRecommendations() {
     if (!currentUser) return;
 
     try {
-        const res = await fetch(`/api/users/recommendations/${currentUser.id}`);
-        const recommendations = await res.json();
+        const res = await fetch(`/api/friends/available/${currentUser.id}`);
+        const users = await res.json();
 
         const section = document.getElementById('recommendations-section');
         const list = document.getElementById('recommendations-list');
 
-        if (recommendations.length === 0) {
+        if (users.length === 0) {
             section.classList.add('hidden');
         } else {
             section.classList.remove('hidden');
-            list.innerHTML = recommendations.map(u => {
+            list.innerHTML = users.map(u => {
                 const avatarHtml = getAvatarHTML(u.avatar, u.displayName || u.username);
                 const initials = getAvatarInitials(u.avatar, u.displayName || u.username);
                 return `
@@ -1208,7 +1208,7 @@ async function loadRecommendations() {
                         <span class="recommendation-name">${escapeHtml(u.displayName || u.username)}</span>
                         <span class="recommendation-username">@${escapeHtml(u.username)}</span>
                     </div>
-                    <button class="btn-accent-small" onclick="addFriend(${u.id})">Add</button>
+                    <button class="btn-accent-small" onclick="addFriend(${u.id})">Add +</button>
                 </div>
             `}).join('');
         }
@@ -1276,7 +1276,7 @@ async function loadAllAddableUsers() {
                         <span class="search-result-name">${escapeHtml(u.displayName || u.username)}</span>
                         <span class="search-result-username">@${escapeHtml(u.username)}</span>
                     </div>
-                    <button class="btn-accent-small" onclick="addFriend(${u.id})">Add</button>
+                    <button class="btn-accent-small" onclick="addFriend(${u.id})">Add +</button>
                 </div>
             `}).join('');
         }
@@ -1289,37 +1289,75 @@ function closeAddFriendModal() {
     document.getElementById('add-friend-modal').classList.add('hidden');
 }
 
-async function searchUsers() {
-    const query = document.getElementById('search-users-input').value.trim().toLowerCase();
-    const results = document.getElementById('search-results');
-    const items = results.querySelectorAll('.search-result-item');
+let allAddableUsers = [];
 
-    if (items.length === 0 && query.length >= 0) {
-        loadAllAddableUsers();
-        return;
+async function loadAllAddableUsers() {
+    if (!currentUser) return;
+
+    try {
+        const res = await fetch(`/api/friends/available/${currentUser.id}`);
+        allAddableUsers = await res.json();
+        renderAddableUsers(allAddableUsers);
+    } catch (err) {
+        console.error('Failed to load users:', err);
     }
+}
 
-    items.forEach(item => {
-        const name = item.querySelector('.search-result-name')?.textContent?.toLowerCase() || '';
-        const username = item.querySelector('.search-result-username')?.textContent?.toLowerCase() || '';
-        
-        if (query.length === 0 || name.includes(query) || username.includes(query)) {
-            item.style.display = 'flex';
-        } else {
-            item.style.display = 'none';
-        }
-    });
+function renderAddableUsers(users) {
+    const results = document.getElementById('search-results');
+    if (users.length === 0) {
+        results.innerHTML = '<div class="no-results">No users found</div>';
+    } else {
+        results.innerHTML = users.map(u => {
+            const avatarHtml = getAvatarHTML(u.avatar, u.displayName || u.username);
+            const initials = getAvatarInitials(u.avatar, u.displayName || u.username);
+            return `
+            <div class="search-result-item">
+                <div class="search-result-avatar" style="${avatarHtml ? 'padding:0' : ''}">
+                    ${avatarHtml || initials}
+                </div>
+                <div class="search-result-info">
+                    <span class="search-result-name">${escapeHtml(u.displayName || u.username)}</span>
+                    <span class="search-result-username">@${escapeHtml(u.username)}</span>
+                </div>
+                <button class="btn-accent-small" onclick="addFriend(${u.id})">Add +</button>
+            </div>
+        `}).join('');
+    }
+}
+
+function searchUsers() {
+    const query = document.getElementById('search-users-input').value.trim().toLowerCase();
+    
+    if (query.length === 0) {
+        renderAddableUsers(allAddableUsers);
+    } else {
+        const filtered = allAddableUsers.filter(u => {
+            const name = (u.displayName || u.username || '').toLowerCase();
+            const username = (u.username || '').toLowerCase();
+            return name.includes(query) || username.includes(query);
+        });
+        renderAddableUsers(filtered);
+    }
 }
 
 async function addFriend(friendId) {
     try {
-        await fetch('/api/friends/add', {
+        const res = await fetch('/api/friends/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: currentUser.id, friendId })
         });
-        closeAddFriendModal();
-        loadFriendRequests();
+        const data = await res.json();
+        
+        if (data.success) {
+            alert('Friend request sent!');
+            closeAddFriendModal();
+            loadFriends();
+            loadRecommendations();
+        } else {
+            alert(data.error || 'Failed to add friend');
+        }
     } catch (err) {
         alert('Failed to add friend');
     }
