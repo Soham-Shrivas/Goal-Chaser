@@ -1120,6 +1120,19 @@ async function register() {
     }
 }
 
+function getAvatarHTML(avatar, name, size = 'small') {
+    if (avatar) {
+        const sizeClass = size === 'large' ? 'avatar-large' : 'avatar-small';
+        return `<div class="avatar-img ${sizeClass}"><img src="${avatar}" alt="${name}"></div>`;
+    }
+    return '';
+}
+
+function getAvatarInitials(avatar, name) {
+    if (avatar) return '';
+    return getInitials(name);
+}
+
 async function loadFriends() {
     if (!currentUser) return;
 
@@ -1135,9 +1148,14 @@ async function loadFriends() {
             empty.classList.remove('hidden');
         } else {
             empty.classList.add('hidden');
-            list.innerHTML = friends.map(f => `
+            list.innerHTML = friends.map(f => {
+                const avatarHtml = getAvatarHTML(f.avatar, f.displayName || f.username);
+                const initials = getAvatarInitials(f.avatar, f.displayName || f.username);
+                return `
                 <div class="friend-card">
-                    <div class="friend-avatar" style="background: var(--accent-purple)">${getInitials(f.displayName || f.username)}</div>
+                    <div class="friend-avatar" style="background: var(--accent-purple)">
+                        ${avatarHtml || initials}
+                    </div>
                     <div class="friend-info">
                         <span class="friend-name">${escapeHtml(f.displayName || f.username)}</span>
                         <span class="friend-username">@${escapeHtml(f.username)}</span>
@@ -1154,7 +1172,7 @@ async function loadFriends() {
                         </button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         loadFriendRequests();
@@ -1178,16 +1196,21 @@ async function loadRecommendations() {
             section.classList.add('hidden');
         } else {
             section.classList.remove('hidden');
-            list.innerHTML = recommendations.map(u => `
+            list.innerHTML = recommendations.map(u => {
+                const avatarHtml = getAvatarHTML(u.avatar, u.displayName || u.username);
+                const initials = getAvatarInitials(u.avatar, u.displayName || u.username);
+                return `
                 <div class="recommendation-item">
-                    <div class="recommendation-avatar">${getInitials(u.displayName || u.username)}</div>
+                    <div class="recommendation-avatar" style="${avatarHtml ? 'padding:0' : ''}">
+                        ${avatarHtml || initials}
+                    </div>
                     <div class="recommendation-info">
                         <span class="recommendation-name">${escapeHtml(u.displayName || u.username)}</span>
                         <span class="recommendation-username">@${escapeHtml(u.username)}</span>
                     </div>
                     <button class="btn-accent-small" onclick="addFriend(${u.id})">Add</button>
                 </div>
-            `).join('');
+            `}).join('');
         }
     } catch (err) {
         console.error('Failed to load recommendations:', err);
@@ -1246,12 +1269,18 @@ async function searchUsers() {
         const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
         const users = await res.json();
 
-        results.innerHTML = users.filter(u => u.id !== currentUser.id).map(u => `
+        results.innerHTML = users.filter(u => u.id !== currentUser.id).map(u => {
+            const avatarHtml = getAvatarHTML(u.avatar, u.displayName || u.username, 'small');
+            const initials = getAvatarInitials(u.avatar, u.displayName || u.username);
+            return `
             <div class="search-result-item">
+                <div class="search-result-avatar">
+                    ${avatarHtml || initials}
+                </div>
                 <span>${escapeHtml(u.displayName || u.username)} (@${escapeHtml(u.username)})</span>
                 <button class="btn-accent-small" onclick="addFriend(${u.id})">Add</button>
             </div>
-        `).join('');
+        `}).join('');
     } catch (err) {
         results.innerHTML = '';
     }

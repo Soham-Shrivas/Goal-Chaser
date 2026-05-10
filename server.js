@@ -139,7 +139,7 @@ app.post('/api/register', async (req, res) => {
     const userId = result[0].values[0][0];
     
     saveDB();
-    res.json({ success: true, userId });
+    res.json({ success: true, userId, username, displayName: displayName || username });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -156,7 +156,7 @@ app.post('/api/login', async (req, res) => {
 
     res.json({
       success: true,
-      user: { id: user.id, username: user.username, displayName: user.displayName, bio: user.bio }
+      user: { id: user.id, username: user.username, displayName: user.displayName, bio: user.bio, avatar: user.avatar || '' }
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -179,7 +179,7 @@ app.put('/api/user/profile', (req, res) => {
 app.get('/api/users/search', (req, res) => {
   const { q } = req.query;
   if (!q) return res.json([]);
-  const stmt = db.prepare('SELECT id, username, displayName FROM users WHERE username LIKE ? OR displayName LIKE ? LIMIT 20');
+  const stmt = db.prepare('SELECT id, username, displayName, avatar FROM users WHERE username LIKE ? OR displayName LIKE ? LIMIT 20');
   stmt.bind([`%${q}%`, `%${q}%`]);
   const results = [];
   while (stmt.step()) {
@@ -193,7 +193,7 @@ app.get('/api/users/recommendations/:userId', (req, res) => {
   const userId = parseInt(req.params.userId);
   
   const stmt = db.prepare(`
-    SELECT u.id, u.username, u.displayName, u.bio
+    SELECT u.id, u.username, u.displayName, u.bio, u.avatar
     FROM users u
     WHERE u.id != ?
     AND u.id NOT IN (
@@ -318,7 +318,7 @@ app.get('/api/all-users', (req, res) => {
 app.get('/api/friends/:userId', (req, res) => {
   const userId = parseInt(req.params.userId);
   const stmt = db.prepare(`
-    SELECT u.id, u.username, u.displayName, u.bio FROM users u
+    SELECT u.id, u.username, u.displayName, u.bio, u.avatar FROM users u
     JOIN friends f ON (f.friendId = u.id AND f.userId = ?) OR (f.userId = u.id AND f.friendId = ?)
     WHERE f.status = 'accepted'
   `);
@@ -334,7 +334,7 @@ app.get('/api/friends/:userId', (req, res) => {
 app.get('/api/friends/requests/:userId', (req, res) => {
   const userId = parseInt(req.params.userId);
   const stmt = db.prepare(`
-    SELECT u.id, u.username, u.displayName FROM users u
+    SELECT u.id, u.username, u.displayName, u.avatar FROM users u
     JOIN friends f ON f.userId = u.id AND f.friendId = ? AND f.status = 'pending'
   `);
   stmt.bind([userId]);
