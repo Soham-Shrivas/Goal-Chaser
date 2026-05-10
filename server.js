@@ -186,8 +186,8 @@ app.put('/api/user/profile', (req, res) => {
 
 app.get('/api/users/search', (req, res) => {
   const { q } = req.query;
-  if (!q) return res.json([]);
-  const stmt = db.prepare('SELECT id, username, displayName, avatar FROM users WHERE username LIKE ? OR displayName LIKE ? LIMIT 20');
+  if (!q || q.length < 1) return res.json([]);
+  const stmt = db.prepare('SELECT id, username, displayName, avatar FROM users WHERE username LIKE ? OR displayName LIKE ? LIMIT 30');
   stmt.bind([`%${q}%`, `%${q}%`]);
   const results = [];
   while (stmt.step()) {
@@ -366,6 +366,7 @@ app.get('/api/friends/available/:userId', (req, res) => {
       UNION
       SELECT userId FROM friends WHERE friendId = ? AND status = 'pending'
     )
+    LIMIT 50
   `);
   stmt.bind([userId, userId, userId, userId, userId]);
   const users = [];

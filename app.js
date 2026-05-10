@@ -1097,15 +1097,7 @@ let currentGroupId = null;
 let groupStudyActive = false;
 
 document.addEventListener('DOMContentLoaded', () => {
-    const savedUser = localStorage.getItem('goalchaser_user');
-    if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        showMainApp();
-        initSocket();
-        checkForGroupInvite();
-    } else {
-        showAuthScreen();
-    }
+    showAuthScreen();
 });
 
 function initSocket() {
@@ -1487,12 +1479,18 @@ function searchUsers() {
     
     if (query.length === 0) {
         renderAddableUsers(allAddableUsers);
+        return;
+    }
+    
+    const filtered = allAddableUsers.filter(u => {
+        const name = (u.displayName || u.username || '').toLowerCase();
+        const username = (u.username || '').toLowerCase();
+        return name.includes(query) || username.includes(query);
+    });
+    
+    if (filtered.length === 0 && query.length >= 1) {
+        document.getElementById('search-results').innerHTML = '<div class="no-results">No users found for "' + escapeHtml(query) + '"</div>';
     } else {
-        const filtered = allAddableUsers.filter(u => {
-            const name = (u.displayName || u.username || '').toLowerCase();
-            const username = (u.username || '').toLowerCase();
-            return name.includes(query) || username.includes(query);
-        });
         renderAddableUsers(filtered);
     }
 }
