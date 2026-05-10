@@ -1942,8 +1942,27 @@ input[type="date"].input-dark {
     margin-bottom: 4px;
 }
 
-.search-result-item span {
+.search-result-info {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.search-result-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.search-result-username {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.no-results {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 20px;
+    font-size: 0.85rem;
 }
 
 .avatar-upload-btn {

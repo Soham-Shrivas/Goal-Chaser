@@ -17,6 +17,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
+app.get('/group/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/invite/*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 const DB_PATH = path.join(__dirname, 'goalchaser.db');
 let db;
 
@@ -295,7 +303,7 @@ app.post('/api/groups/invite/generate', (req, res) => {
 
 app.get('/api/all-users', (req, res) => {
   const { exclude } = req.query;
-  let query = 'SELECT id, username, displayName FROM users';
+  let query = 'SELECT id, username, displayName, avatar FROM users';
   let params = [];
   
   if (exclude) {
@@ -307,6 +315,33 @@ app.get('/api/all-users', (req, res) => {
   
   const stmt = db.prepare(query);
   stmt.bind(params);
+  const users = [];
+  while (stmt.step()) {
+    users.push(stmt.getAsObject());
+  }
+  stmt.free();
+  res.json(users);
+});
+
+app.get('/api/friends/available/:userId', (req, res) => {
+  const userId = parseInt(req.params.userId);
+  
+  const stmt = db.prepare(`
+    SELECT u.id, u.username, u.displayName, u.avatar
+    FROM users u
+    WHERE u.id != ?
+    AND u.id NOT IN (
+      SELECT friendId FROM friends WHERE userId = ? AND status = 'accepted'
+      UNION
+      SELECT userId FROM friends WHERE friendId = ? AND status = 'accepted'
+    )
+    AND u.id NOT IN (
+      SELECT friendId FROM friends WHERE userId = ? AND status = 'pending'
+      UNION
+      SELECT userId FROM friends WHERE friendId = ? AND status = 'pending'
+    )
+  `);
+  stmt.bind([userId, userId, userId, userId, userId]);
   const users = [];
   while (stmt.step()) {
     users.push(stmt.getAsObject());

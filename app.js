@@ -1249,7 +1249,40 @@ function openAddFriendModal() {
     document.getElementById('search-users-input').value = '';
     document.getElementById('search-results').innerHTML = '';
     document.getElementById('add-friend-modal').classList.remove('hidden');
+    loadAllAddableUsers();
     setTimeout(() => document.getElementById('search-users-input').focus(), 100);
+}
+
+async function loadAllAddableUsers() {
+    if (!currentUser) return;
+
+    try {
+        const res = await fetch(`/api/friends/available/${currentUser.id}`);
+        const users = await res.json();
+
+        const results = document.getElementById('search-results');
+        if (users.length === 0) {
+            results.innerHTML = '<div class="no-results">No users available to add</div>';
+        } else {
+            results.innerHTML = users.map(u => {
+                const avatarHtml = getAvatarHTML(u.avatar, u.displayName || u.username);
+                const initials = getAvatarInitials(u.avatar, u.displayName || u.username);
+                return `
+                <div class="search-result-item">
+                    <div class="search-result-avatar" style="${avatarHtml ? 'padding:0' : ''}">
+                        ${avatarHtml || initials}
+                    </div>
+                    <div class="search-result-info">
+                        <span class="search-result-name">${escapeHtml(u.displayName || u.username)}</span>
+                        <span class="search-result-username">@${escapeHtml(u.username)}</span>
+                    </div>
+                    <button class="btn-accent-small" onclick="addFriend(${u.id})">Add</button>
+                </div>
+            `}).join('');
+        }
+    } catch (err) {
+        console.error('Failed to load users:', err);
+    }
 }
 
 function closeAddFriendModal() {
@@ -1257,33 +1290,25 @@ function closeAddFriendModal() {
 }
 
 async function searchUsers() {
-    const query = document.getElementById('search-users-input').value.trim();
+    const query = document.getElementById('search-users-input').value.trim().toLowerCase();
     const results = document.getElementById('search-results');
+    const items = results.querySelectorAll('.search-result-item');
 
-    if (query.length < 2) {
-        results.innerHTML = '';
+    if (items.length === 0 && query.length >= 0) {
+        loadAllAddableUsers();
         return;
     }
 
-    try {
-        const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
-        const users = await res.json();
-
-        results.innerHTML = users.filter(u => u.id !== currentUser.id).map(u => {
-            const avatarHtml = getAvatarHTML(u.avatar, u.displayName || u.username, 'small');
-            const initials = getAvatarInitials(u.avatar, u.displayName || u.username);
-            return `
-            <div class="search-result-item">
-                <div class="search-result-avatar">
-                    ${avatarHtml || initials}
-                </div>
-                <span>${escapeHtml(u.displayName || u.username)} (@${escapeHtml(u.username)})</span>
-                <button class="btn-accent-small" onclick="addFriend(${u.id})">Add</button>
-            </div>
-        `}).join('');
-    } catch (err) {
-        results.innerHTML = '';
-    }
+    items.forEach(item => {
+        const name = item.querySelector('.search-result-name')?.textContent?.toLowerCase() || '';
+        const username = item.querySelector('.search-result-username')?.textContent?.toLowerCase() || '';
+        
+        if (query.length === 0 || name.includes(query) || username.includes(query)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
 }
 
 async function addFriend(friendId) {
