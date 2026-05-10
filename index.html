@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Goal Chaser — A dark-themed productivity app with study timer, task management, analytics, and D-Day countdown.">
+    <title>Goal Chaser — Study Timer & Productivity</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#8b5cf6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+</head>
+<body>
+    <div id="app">
+        <!-- Auth Screens -->
+        <div id="auth-screen" class="auth-screen">
+            <div class="auth-container">
+                <div class="logo-large">
+                    <svg width="64" height="64" viewBox="0 0 28 28" fill="none">
+                        <circle cx="14" cy="14" r="12" stroke="url(#logoGrad)" stroke-width="2.5" fill="none"/>
+                        <line x1="14" y1="7" x2="14" y2="14" stroke="url(#logoGrad)" stroke-width="2.5" stroke-linecap="round"/>
+                        <line x1="14" y1="14" x2="19" y2="18" stroke="#06b6d4" stroke-width="2.5" stroke-linecap="round"/>
+                        <circle cx="14" cy="14" r="2" fill="#8b5cf6"/>
+                        <defs>
+                            <linearGradient id="logoGrad" x1="0" y1="0" x2="28" y2="28">
+                                <stop stop-color="#8b5cf6"/>
+                                <stop offset="1" stop-color="#06b6d4"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <h1 class="auth-title">Goal Chaser</h1>
+                <p class="auth-subtitle">Connect, Study Together</p>
+                
+                <div id="login-form" class="auth-form">
+                    <input type="text" id="login-username" class="input-dark" placeholder="Username">
+                    <input type="password" id="login-password" class="input-dark" placeholder="Password">
+                    <button class="btn-accent full-width" onclick="login()">Login</button>
+                    <p class="auth-switch">Don't have an account? <span onclick="showRegister()">Register</span></p>
+                </div>
+                
+                <div id="register-form" class="auth-form hidden">
+                    <input type="text" id="reg-username" class="input-dark" placeholder="Username">
+                    <input type="text" id="reg-displayname" class="input-dark" placeholder="Display Name">
+                    <input type="password" id="reg-password" class="input-dark" placeholder="Password">
+                    <button class="btn-accent full-width" onclick="register()">Register</button>
+                    <p class="auth-switch">Already have an account? <span onclick="showLogin()">Login</span></p>
+                </div>
+                <p id="auth-error" class="auth-error hidden"></p>
+            </div>
+        </div>
+        <!-- ===== HEADER ===== -->
+        <header id="app-header">
+            <div class="header-left">
+                <div class="logo">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                        <circle cx="14" cy="14" r="12" stroke="url(#logoGrad)" stroke-width="2.5" fill="none"/>
+                        <line x1="14" y1="7" x2="14" y2="14" stroke="url(#logoGrad)" stroke-width="2.5" stroke-linecap="round"/>
+                        <line x1="14" y1="14" x2="19" y2="18" stroke="#06b6d4" stroke-width="2.5" stroke-linecap="round"/>
+                        <circle cx="14" cy="14" r="2" fill="#8b5cf6"/>
+                        <defs>
+                            <linearGradient id="logoGrad" x1="0" y1="0" x2="28" y2="28">
+                                <stop stop-color="#8b5cf6"/>
+                                <stop offset="1" stop-color="#06b6d4"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <h1 class="app-title">Goal Chaser</h1>
+            </div>
+            <div class="header-right">
+                <span id="header-date" class="header-date"></span>
+                <button id="settings-btn" class="icon-btn" title="Settings" onclick="toggleSettingsModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- ===== MAIN CONTENT AREA ===== -->
+        <main id="main-content">
+
+            <!-- TAB: TIMER -->
+            <section id="tab-timer" class="tab-content active">
+                <!-- Today's Summary Strip -->
+                <div class="today-summary">
+                    <div class="summary-item">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <div>
+                            <span class="summary-label">Today</span>
+                            <span id="today-total" class="summary-value">0h 0m</span>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        <div>
+                            <span class="summary-label">Tasks Done</span>
+                            <span id="today-tasks" class="summary-value">0/0</span>
+                        </div>
+                    </div>
+                    <div class="summary-item">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        <div>
+                            <span class="summary-label">Streak</span>
+                            <span id="today-streak" class="summary-value">0 days</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subject Selector -->
+                <div class="subject-selector">
+                    <div id="subject-chips" class="subject-chips">
+                        <!-- Chips generated by JS -->
+                    </div>
+                    <button id="add-subject-btn" class="add-subject-btn" onclick="openSubjectModal()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                </div>
+
+                <!-- Timer Display -->
+                <div class="timer-container">
+                    <div class="timer-ring-wrapper">
+                        <svg id="timer-ring" class="timer-ring" viewBox="0 0 240 240">
+                            <defs>
+                                <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#8b5cf6"/>
+                                    <stop offset="100%" stop-color="#06b6d4"/>
+                                </linearGradient>
+                            </defs>
+                            <circle cx="120" cy="120" r="108" class="ring-bg"/>
+                            <circle id="ring-progress" cx="120" cy="120" r="108" class="ring-progress" stroke="url(#ringGrad)" 
+                                stroke-dasharray="678.58" stroke-dashoffset="0"/>
+                        </svg>
+                        <div class="timer-display">
+                            <div id="timer-mode-label" class="timer-mode-label">STOPWATCH</div>
+                            <div id="timer-digits" class="timer-digits">00:00:00</div>
+                            <div id="timer-subject-label" class="timer-subject-label">Select a subject</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Timer Controls -->
+                <div class="timer-controls">
+                    <button id="timer-reset-btn" class="timer-btn secondary" onclick="resetTimer()" title="Reset">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                    </button>
+                    <button id="timer-start-btn" class="timer-btn primary" onclick="toggleTimer()">
+                        <svg id="play-icon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        <svg id="pause-icon" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                    </button>
+                    <button id="timer-mode-btn" class="timer-btn secondary" onclick="toggleTimerMode()" title="Switch Mode">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    </button>
+                </div>
+
+                <!-- Pomodoro Settings (shown when in Pomodoro mode) -->
+                <div id="pomodoro-settings" class="pomodoro-settings hidden">
+                    <div class="pomo-setting">
+                        <span>Focus</span>
+                        <div class="pomo-adjuster">
+                            <button onclick="adjustPomodoro('focus', -5)">−</button>
+                            <span id="pomo-focus-val">25</span><span class="pomo-unit">min</span>
+                            <button onclick="adjustPomodoro('focus', 5)">+</button>
+                        </div>
+                    </div>
+                    <div class="pomo-setting">
+                        <span>Break</span>
+                        <div class="pomo-adjuster">
+                            <button onclick="adjustPomodoro('break', -1)">−</button>
+                            <span id="pomo-break-val">5</span><span class="pomo-unit">min</span>
+                            <button onclick="adjustPomodoro('break', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="pomo-setting">
+                        <span>Sessions</span>
+                        <div class="pomo-adjuster">
+                            <button onclick="adjustPomodoro('sessions', -1)">−</button>
+                            <span id="pomo-sessions-val">4</span>
+                            <button onclick="adjustPomodoro('sessions', 1)">+</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB: TODOS -->
+            <section id="tab-todos" class="tab-content">
+                <div class="tab-header">
+                    <h2>Tasks</h2>
+                    <div class="tab-header-actions">
+                        <select id="todo-filter-subject" class="select-dark" onchange="renderTodos()">
+                            <option value="all">All Subjects</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Add Task -->
+                <div class="add-task-bar">
+                    <input type="text" id="new-task-input" class="input-dark" placeholder="Add a new task..." onkeydown="if(event.key==='Enter')addTask()">
+                    <select id="new-task-subject" class="select-dark small">
+                        <!-- Options generated by JS -->
+                    </select>
+                    <button class="btn-accent" onclick="addTask()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                </div>
+                <!-- Progress Bar -->
+                <div class="task-progress-bar">
+                    <div class="progress-track">
+                        <div id="task-progress-fill" class="progress-fill" style="width: 0%"></div>
+                    </div>
+                    <span id="task-progress-text" class="progress-text">0% Complete</span>
+                </div>
+                <!-- Task List -->
+                <div id="todo-list" class="todo-list">
+                    <!-- Tasks generated by JS -->
+                </div>
+                <div id="todo-empty" class="empty-state hidden">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(139,92,246,0.3)" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <p>No tasks yet. Add one above!</p>
+                </div>
+            </section>
+
+            <!-- TAB: STATS -->
+            <section id="tab-stats" class="tab-content">
+                <div class="tab-header">
+                    <h2>Statistics</h2>
+                    <div class="stat-period-selector">
+                        <button class="period-btn active" data-period="week" onclick="switchStatPeriod('week')">Week</button>
+                        <button class="period-btn" data-period="month" onclick="switchStatPeriod('month')">Month</button>
+                    </div>
+                </div>
+                <!-- Stat Cards -->
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-card-icon purple">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        </div>
+                        <div>
+                            <div class="stat-card-label">Total Study</div>
+                            <div id="stat-total" class="stat-card-value">0h 0m</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-icon cyan">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                        </div>
+                        <div>
+                            <div class="stat-card-label">Daily Average</div>
+                            <div id="stat-avg" class="stat-card-value">0h 0m</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-icon amber">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                        </div>
+                        <div>
+                            <div class="stat-card-label">Best Day</div>
+                            <div id="stat-best" class="stat-card-value">0h 0m</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Bar Chart -->
+                <div class="chart-card">
+                    <h3>Study Time</h3>
+                    <canvas id="bar-chart" width="600" height="220"></canvas>
+                </div>
+                <!-- Subject Donut -->
+                <div class="chart-card">
+                    <h3>By Subject</h3>
+                    <div class="donut-wrapper">
+                        <canvas id="donut-chart" width="220" height="220"></canvas>
+                        <div id="donut-legend" class="donut-legend"></div>
+                    </div>
+                </div>
+                <!-- Heatmap -->
+                <div class="chart-card">
+                    <h3>Study Calendar</h3>
+                    <div id="heatmap-container" class="heatmap-container"></div>
+                </div>
+            </section>
+
+            <!-- TAB: D-DAY -->
+            <section id="tab-dday" class="tab-content">
+                <div class="tab-header">
+                    <h2>D-Day</h2>
+                    <button class="btn-accent" onclick="openDdayModal()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span>Add Event</span>
+                    </button>
+                </div>
+                <div id="dday-list" class="dday-list">
+                    <!-- D-Day cards generated by JS -->
+                </div>
+                <div id="dday-empty" class="empty-state hidden">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(6,182,212,0.3)" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <p>No events yet. Add your first countdown!</p>
+                </div>
+            </section>
+
+            <!-- TAB: FRIENDS -->
+            <section id="tab-friends" class="tab-content">
+                <div class="tab-header">
+                    <h2>Friends</h2>
+                    <button class="btn-accent" onclick="openAddFriendModal()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span>Add</span>
+                    </button>
+                </div>
+                <div id="friend-requests" class="friend-requests hidden">
+                    <h4>Friend Requests</h4>
+                    <div id="friend-requests-list"></div>
+                </div>
+                <div class="friends-list" id="friends-list">
+                    <!-- Friends list generated by JS -->
+                </div>
+                <div id="friends-empty" class="empty-state">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(139,92,246,0.3)" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <p>No friends yet. Add some!</p>
+                </div>
+            </section>
+
+            <!-- TAB: GROUPS -->
+            <section id="tab-groups" class="tab-content">
+                <div class="tab-header">
+                    <h2>Study Groups</h2>
+                    <button class="btn-accent" onclick="openCreateGroupModal()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span>Create</span>
+                    </button>
+                </div>
+                <div id="groups-list" class="groups-list">
+                    <!-- Groups list generated by JS -->
+                </div>
+                <div id="groups-empty" class="empty-state">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="rgba(6,182,212,0.3)" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                    <p>No groups yet. Create one!</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- ===== BOTTOM NAV ===== -->
+        <nav id="bottom-nav">
+            <button class="nav-btn active" data-tab="timer" onclick="switchTab('timer')">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Timer</span>
+            </button>
+            <button class="nav-btn" data-tab="todos" onclick="switchTab('todos')">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                <span>Tasks</span>
+            </button>
+            <button class="nav-btn" data-tab="stats" onclick="switchTab('stats')">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+                <span>Stats</span>
+            </button>
+            <button class="nav-btn" data-tab="dday" onclick="switchTab('dday')">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span>D-Day</span>
+            </button>
+            <button class="nav-btn" data-tab="friends" onclick="switchTab('friends')">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>Friends</span>
+            </button>
+            <button class="nav-btn" data-tab="groups" onclick="switchTab('groups')">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span>Groups</span>
+            </button>
+        </nav>
+
+        <!-- ===== MODALS ===== -->
+        <!-- Subject Modal -->
+        <div id="subject-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeSubjectModal()">
+            <div class="modal-content">
+                <h3 id="subject-modal-title">Add Subject</h3>
+                <input type="text" id="subject-name-input" class="input-dark" placeholder="Subject name" maxlength="30">
+                <div class="color-picker">
+                    <span class="color-picker-label">Color</span>
+                    <div id="color-options" class="color-options">
+                        <button class="color-dot active" data-color="#8b5cf6" style="background:#8b5cf6" onclick="selectSubjectColor(this)"></button>
+                        <button class="color-dot" data-color="#06b6d4" style="background:#06b6d4" onclick="selectSubjectColor(this)"></button>
+                        <button class="color-dot" data-color="#f59e0b" style="background:#f59e0b" onclick="selectSubjectColor(this)"></button>
+                        <button class="color-dot" data-color="#ef4444" style="background:#ef4444" onclick="selectSubjectColor(this)"></button>
+                        <button class="color-dot" data-color="#10b981" style="background:#10b981" onclick="selectSubjectColor(this)"></button>
+                        <button class="color-dot" data-color="#ec4899" style="background:#ec4899" onclick="selectSubjectColor(this)"></button>
+                        <button class="color-dot" data-color="#3b82f6" style="background:#3b82f6" onclick="selectSubjectColor(this)"></button>
+                        <button class="color-dot" data-color="#f97316" style="background:#f97316" onclick="selectSubjectColor(this)"></button>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-ghost" onclick="closeSubjectModal()">Cancel</button>
+                    <button class="btn-accent" onclick="saveSubject()">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- D-Day Modal -->
+        <div id="dday-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeDdayModal()">
+            <div class="modal-content">
+                <h3>Add D-Day Event</h3>
+                <input type="text" id="dday-name-input" class="input-dark" placeholder="Event name (e.g., Final Exam)" maxlength="40">
+                <input type="date" id="dday-date-input" class="input-dark">
+                <div class="color-picker">
+                    <span class="color-picker-label">Theme</span>
+                    <div class="color-options">
+                        <button class="color-dot active" data-color="#8b5cf6" style="background:#8b5cf6" onclick="selectDdayColor(this)"></button>
+                        <button class="color-dot" data-color="#06b6d4" style="background:#06b6d4" onclick="selectDdayColor(this)"></button>
+                        <button class="color-dot" data-color="#ef4444" style="background:#ef4444" onclick="selectDdayColor(this)"></button>
+                        <button class="color-dot" data-color="#f59e0b" style="background:#f59e0b" onclick="selectDdayColor(this)"></button>
+                        <button class="color-dot" data-color="#10b981" style="background:#10b981" onclick="selectDdayColor(this)"></button>
+                        <button class="color-dot" data-color="#ec4899" style="background:#ec4899" onclick="selectDdayColor(this)"></button>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-ghost" onclick="closeDdayModal()">Cancel</button>
+                    <button class="btn-accent" onclick="saveDday()">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal-overlay hidden" onclick="if(event.target===this)toggleSettingsModal()">
+            <div class="modal-content settings-content">
+                <h3>Settings</h3>
+                <div class="settings-group">
+                    <div class="setting-row">
+                        <span>Notifications</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-notifications" onchange="saveSetting('notifications', this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-row">
+                        <span>Sound Effects</span>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setting-sound" checked onchange="saveSetting('sound', this.checked)">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-row">
+                        <span>Profile</span>
+                        <button class="btn-accent-small" onclick="openProfileModal()">Edit</button>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <div class="setting-row danger">
+                        <span>Clear All Data</span>
+                        <button class="btn-danger-small" onclick="clearAllData()">Clear</button>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-ghost" onclick="toggleSettingsModal()">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Friend Modal -->
+        <div id="add-friend-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeAddFriendModal()">
+            <div class="modal-content">
+                <h3>Add Friend</h3>
+                <input type="text" id="search-users-input" class="input-dark" placeholder="Search users..." onkeyup="searchUsers()">
+                <div id="search-results" class="search-results"></div>
+                <div class="modal-actions">
+                    <button class="btn-ghost" onclick="closeAddFriendModal()">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Modal -->
+        <div id="profile-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeProfileModal()">
+            <div class="modal-content">
+                <h3>Edit Profile</h3>
+                <input type="text" id="profile-displayname" class="input-dark" placeholder="Display Name">
+                <textarea id="profile-bio" class="input-dark" placeholder="Bio" rows="3"></textarea>
+                <div class="modal-actions">
+                    <button class="btn-ghost" onclick="closeProfileModal()">Cancel</button>
+                    <button class="btn-accent" onclick="saveProfile()">Save</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Profile Modal -->
+        <div id="view-profile-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeViewProfileModal()">
+            <div class="modal-content">
+                <div class="profile-view-header">
+                    <div class="profile-avatar" id="view-profile-avatar"></div>
+                    <h3 id="view-profile-name"></h3>
+                    <p id="view-profile-username"></p>
+                </div>
+                <p id="view-profile-bio" class="profile-bio"></p>
+                <div class="modal-actions">
+                    <button class="btn-ghost" onclick="closeViewProfileModal()">Close</button>
+                    <button class="btn-accent" id="view-profile-chat-btn" onclick="openChatFromProfile()">Chat</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Modal -->
+        <div id="chat-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeChatModal()">
+            <div class="modal-content chat-content">
+                <div class="chat-header">
+                    <h3 id="chat-with-name"></h3>
+                    <button class="btn-ghost" onclick="closeChatModal()">×</button>
+                </div>
+                <div id="chat-messages" class="chat-messages"></div>
+                <div class="chat-input">
+                    <input type="text" id="chat-input" class="input-dark" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendMessage()">
+                    <button class="btn-accent" onclick="sendMessage()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Group Modal -->
+        <div id="create-group-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeCreateGroupModal()">
+            <div class="modal-content">
+                <h3>Create Study Group</h3>
+                <input type="text" id="group-name-input" class="input-dark" placeholder="Group name">
+                <div class="modal-actions">
+                    <button class="btn-ghost" onclick="closeCreateGroupModal()">Cancel</button>
+                    <button class="btn-accent" onclick="createGroup()">Create</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Group Detail Modal -->
+        <div id="group-detail-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeGroupDetailModal()">
+            <div class="modal-content group-detail-content">
+                <div class="group-header">
+                    <h3 id="group-detail-name"></h3>
+                    <button class="btn-ghost" onclick="closeGroupDetailModal()">×</button>
+                </div>
+                <div class="group-members-section">
+                    <h4>Members & Study Time</h4>
+                    <div id="group-members-list" class="group-members-list"></div>
+                </div>
+                <div class="group-study-timer">
+                    <div id="group-study-status" class="study-status">Not studying</div>
+                    <button id="group-study-btn" class="btn-accent" onclick="toggleGroupStudy()">Start Study Session</button>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn-danger-small" onclick="leaveGroup()">Leave Group</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Register Service Worker for PWA / offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('SW registered:', reg.scope))
+                    .catch(err => console.warn('SW registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>
