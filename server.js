@@ -301,6 +301,32 @@ app.post('/api/groups/invite/generate', (req, res) => {
   }
 });
 
+app.get('/api/groups/:groupId/addable-members/:userId', (req, res) => {
+  const groupId = parseInt(req.params.groupId);
+  const userId = parseInt(req.params.userId);
+  
+  const stmt = db.prepare(`
+    SELECT u.id, u.username, u.displayName, u.avatar
+    FROM users u
+    WHERE u.id != ?
+    AND u.id NOT IN (SELECT userId FROM group_members WHERE groupId = ?)
+    AND (
+      u.id IN (
+        SELECT friendId FROM friends WHERE userId = ? AND status = 'accepted'
+        UNION
+        SELECT userId FROM friends WHERE friendId = ? AND status = 'accepted'
+      )
+    )
+  `);
+  stmt.bind([userId, groupId, userId, userId]);
+  const users = [];
+  while (stmt.step()) {
+    users.push(stmt.getAsObject());
+  }
+  stmt.free();
+  res.json(users);
+});
+
 app.get('/api/all-users', (req, res) => {
   const { exclude } = req.query;
   let query = 'SELECT id, username, displayName, avatar FROM users';
@@ -383,20 +409,23 @@ app.get('/api/friends/requests/:userId', (req, res) => {
 
 app.post('/api/friends/add', (req, res) => {
   const { userId, friendId } = req.body;
-  const stmt = db.prepare('SELECT * FROM friends WHERE (userId = ? AND friendId = ?) OR (userId = ? AND friendId = ?)');
-  stmt.bind([userId, friendId, friendId, userId]);
-  const exists = stmt.step();
-  stmt.free();
+  
+  const checkStmt = db.prepare('SELECT * FROM friends WHERE (userId = ? AND friendId = ?) OR (userId = ? AND friendId = ?)');
+  checkStmt.bind([userId, friendId, friendId, userId]);
+  const exists = checkStmt.step();
+  checkStmt.free();
   if (exists) return res.status(400).json({ error: 'Already friends or request pending' });
 
   db.run('INSERT INTO friends (userId, friendId, status) VALUES (?, ?, ?)', [userId, friendId, 'pending']);
-
+  
+  saveDB();
+  
   const friendSocket = userSockets.get(friendId);
   if (friendSocket) {
     io.to(friendSocket).emit('friend_request', { from: userId });
   }
-  saveDB();
-  res.json({ success: true });
+  
+  res.json({ success: true, message: 'Friend request sent!' });
 });
 
 app.post('/api/friends/accept', (req, res) => {
@@ -509,7 +538,7 @@ app.post('/api/groups/:groupId/leave', (req, res) => {
 app.get('/api/groups/:groupId/study-time', (req, res) => {
   const groupId = parseInt(req.params.groupId);
   const stmt = db.prepare(`
-    SELECT u.id, u.username, u.displayName, 
+    SELECT u.id, u.username, u.displayName, u.avatar, 
            COALESCE(SUM(ss.seconds), 0) as totalSeconds
     FROM users u
     LEFT JOIN study_sessions ss ON ss.userId = u.id AND ss.groupId = ?
@@ -519,11 +548,16 @@ app.get('/api/groups/:groupId/study-time', (req, res) => {
   stmt.bind([groupId, groupId]);
   const studyTimes = [];
   while (stmt.step()) {
-    studyTimes.push(stmt.getAsObject());
+    const row = stmt.getAsObject();
+    const isStudying = studyingUsers.has(row.id) && studyingUsers.get(row.id) === groupId;
+    row.isStudying = isStudying;
+    studyTimes.push(row);
   }
   stmt.free();
   res.json(studyTimes);
 });
+
+const studyingUsers = new Map();
 
 io.on('connection', (socket) => {
   socket.on('auth', (userId) => {
@@ -537,8 +571,12 @@ io.on('connection', (socket) => {
     const result = db.exec('SELECT last_insert_rowid() as id');
     socket.sessionId = result[0].values[0][0];
     socket.studyStartTime = Date.now();
-
+    socket.studyUserId = userId;
+    socket.studyGroupId = groupId;
+    
     if (groupId) {
+      studyingUsers.set(userId, groupId);
+      
       const stmt = db.prepare('SELECT userId FROM group_members WHERE groupId = ?');
       stmt.bind([groupId]);
       while (stmt.step()) {
@@ -556,10 +594,12 @@ io.on('connection', (socket) => {
       const elapsed = Math.floor((Date.now() - socket.studyStartTime) / 1000);
       db.run('UPDATE study_sessions SET endTime = CURRENT_TIMESTAMP, seconds = ? WHERE id = ?', [elapsed, socket.sessionId]);
       socket.sessionId = null;
-
+      
       if (groupId) {
+        studyingUsers.delete(userId);
+        
         const stmt = db.prepare(`
-          SELECT u.id, u.username, u.displayName, COALESCE(SUM(ss.seconds), 0) as totalSeconds
+          SELECT u.id, u.username, u.displayName, u.avatar, COALESCE(SUM(ss.seconds), 0) as totalSeconds
           FROM users u
           LEFT JOIN study_sessions ss ON ss.userId = u.id AND ss.groupId = ?
           JOIN group_members gm ON gm.userId = u.id AND gm.groupId = ?
@@ -568,7 +608,9 @@ io.on('connection', (socket) => {
         stmt.bind([groupId, groupId]);
         const studyTimes = [];
         while (stmt.step()) {
-          studyTimes.push(stmt.getAsObject());
+          const row = stmt.getAsObject();
+          row.isStudying = studyingUsers.has(row.id) && studyingUsers.get(row.id) === groupId;
+          studyTimes.push(row);
         }
         stmt.free();
 

@@ -1664,8 +1664,11 @@ async function createGroup() {
     }
 }
 
+let currentGroupName = null;
+
 async function openGroupDetail(groupId, groupName) {
     currentGroupId = groupId;
+    currentGroupName = groupName;
     document.getElementById('group-detail-name').textContent = groupName;
     document.getElementById('group-detail-modal').classList.remove('hidden');
 
@@ -1790,6 +1793,58 @@ function openGroupInviteModal() {
     });
 }
 
+async function openAddGroupMembersModal() {
+    document.getElementById('add-group-members-modal').classList.remove('hidden');
+    document.getElementById('group-detail-modal').classList.add('hidden');
+
+    try {
+        const res = await fetch(`/api/groups/${currentGroupId}/addable-members/${currentUser.id}`);
+        const users = await res.json();
+
+        const list = document.getElementById('add-group-members-list');
+        if (users.length === 0) {
+            list.innerHTML = '<div class="no-results">No friends available to add. Add friends first!</div>';
+        } else {
+            list.innerHTML = users.map(u => {
+                const avatarHtml = getAvatarHTML(u.avatar, u.displayName || u.username);
+                const initials = getAvatarInitials(u.avatar, u.displayName || u.username);
+                return `
+                <div class="add-group-member-item">
+                    <div class="add-group-member-avatar" style="${avatarHtml ? 'padding:0' : ''}">
+                        ${avatarHtml || initials}
+                    </div>
+                    <div class="add-group-member-info">
+                        <span class="add-group-member-name">${escapeHtml(u.displayName || u.username)}</span>
+                        <span class="add-group-member-username">@${escapeHtml(u.username)}</span>
+                    </div>
+                    <button class="btn-accent-small" onclick="addMemberToGroup(${u.id})">Add</button>
+                </div>
+            `}).join('');
+        }
+    } catch (err) {
+        console.error('Failed to load addable members:', err);
+    }
+}
+
+function closeAddGroupMembersModal() {
+    document.getElementById('add-group-members-modal').classList.add('hidden');
+    document.getElementById('group-detail-modal').classList.remove('hidden');
+}
+
+async function addMemberToGroup(userId) {
+    try {
+        await fetch(`/api/groups/${currentGroupId}/join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+        });
+        openAddGroupMembersModal();
+        loadGroupMembers();
+    } catch (err) {
+        alert('Failed to add member');
+    }
+}
+
 function closeGroupInviteModal() {
     document.getElementById('group-invite-modal').classList.add('hidden');
     document.getElementById('group-detail-modal').classList.remove('hidden');
@@ -1841,6 +1896,115 @@ function showJoinGroupModal(group) {
     pendingGroupJoin = group;
     document.getElementById('join-group-desc').textContent = `You have been invited to join "${group.name}"!`;
     document.getElementById('join-group-modal').classList.remove('hidden');
+}
+
+let studySessionInterval = null;
+
+function getGlowClass(hours) {
+    if (hours >= 6) return 'glow-violet';
+    if (hours >= 5) return 'glow-red';
+    if (hours >= 4) return 'glow-blue';
+    if (hours >= 3) return 'glow-yellow';
+    if (hours >= 2) return 'glow-green';
+    if (hours >= 1) return 'glow-white';
+    return '';
+}
+
+function getProgressDots(hours) {
+    let filled = 0;
+    if (hours >= 1) filled = 1;
+    if (hours >= 2) filled = 2;
+    if (hours >= 3) filled = 3;
+    if (hours >= 4) filled = 4;
+    if (hours >= 5) filled = 5;
+    if (hours >= 6) filled = 6;
+    
+    let html = '';
+    for (let i = 0; i < 6; i++) {
+        html += `<div class="progress-dot ${i < filled ? 'filled' : ''}"></div>`;
+    }
+    return html;
+}
+
+function openStudySessionPage() {
+    document.getElementById('study-session-page').classList.remove('hidden');
+    document.getElementById('group-detail-modal').classList.add('hidden');
+    renderStudySession();
+    
+    studySessionInterval = setInterval(() => {
+        renderStudySession();
+    }, 1000);
+}
+
+function closeStudySessionPage() {
+    document.getElementById('study-session-page').classList.add('hidden');
+    document.getElementById('group-detail-modal').classList.remove('hidden');
+    if (studySessionInterval) {
+        clearInterval(studySessionInterval);
+        studySessionInterval = null;
+    }
+}
+
+async function renderStudySession() {
+    if (!currentGroupId) return;
+
+    try {
+        const res = await fetch(`/api/groups/${currentGroupId}/study-time`);
+        const studyTimes = await res.json();
+
+        document.getElementById('study-session-group-name').textContent = currentGroupName || 'Study Session';
+
+        const container = document.getElementById('study-session-members');
+        
+        let totalSeconds = 0;
+        const isStudying = studyTimes.some(s => s.isStudying);
+        
+        const html = studyTimes.map(st => {
+            const hours = st.totalSeconds / 3600;
+            const glowClass = getGlowClass(hours);
+            const avatarHtml = getAvatarHTML(st.avatar, st.displayName || st.username);
+            const initials = getAvatarInitials(st.avatar, st.displayName || st.username);
+            totalSeconds += st.totalSeconds;
+            
+            return `
+            <div class="study-member-card">
+                <div class="study-member-avatar-wrapper">
+                    <div class="study-member-avatar ${glowClass}">
+                        ${avatarHtml || initials}
+                    </div>
+                </div>
+                <div class="study-member-info">
+                    <div class="study-member-name">${escapeHtml(st.displayName || st.username)}</div>
+                    <div class="study-member-timer">${formatDuration(st.totalSeconds)}</div>
+                    <div class="study-member-status ${st.isStudying ? 'studying' : ''}">
+                        ${st.isStudying ? '🔴 Studying' : 'Idle'}
+                    </div>
+                    <div class="study-member-progress">
+                        ${getProgressDots(hours)}
+                    </div>
+                </div>
+            </div>
+        `}).join('');
+
+        container.innerHTML = html;
+
+        const totalH = Math.floor(totalSeconds / 3600);
+        const totalM = Math.floor((totalSeconds % 3600) / 60);
+        const totalS = totalSeconds % 60;
+        document.getElementById('session-total-timer').textContent = 
+            `${pad(totalH)}:${pad(totalM)}:${pad(totalS)}`;
+
+        const btn = document.getElementById('session-toggle-btn');
+        if (groupStudyActive) {
+            btn.textContent = 'Stop Studying';
+            btn.style.background = 'var(--accent-red)';
+        } else {
+            btn.textContent = 'Start Studying Together';
+            btn.style.background = '';
+        }
+    } catch (err) {
+        console.error('Failed to render study session:', err);
+    }
 }
 
 function closeJoinGroupModal() {
