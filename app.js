@@ -988,6 +988,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentUser = JSON.parse(savedUser);
         showMainApp();
         initSocket();
+        checkForGroupInvite();
     } else {
         showAuthScreen();
     }
@@ -1401,6 +1402,14 @@ function closeViewProfileModal() {
 function openProfileModal() {
     document.getElementById('profile-displayname').value = currentUser.displayName || '';
     document.getElementById('profile-bio').value = currentUser.bio || '';
+    
+    const avatarPreview = document.getElementById('avatar-preview-large');
+    if (currentUser.avatar) {
+        avatarPreview.innerHTML = `<img src="${currentUser.avatar}" alt="Avatar">`;
+    } else {
+        avatarPreview.textContent = getInitials(currentUser.displayName || currentUser.username);
+    }
+    
     document.getElementById('profile-modal').classList.remove('hidden');
     toggleSettingsModal();
 }
@@ -1412,6 +1421,8 @@ function closeProfileModal() {
 async function saveProfile() {
     const displayName = document.getElementById('profile-displayname').value.trim();
     const bio = document.getElementById('profile-bio').value.trim();
+    const avatarInput = document.getElementById('avatar-input');
+    const avatar = currentUser.avatar || '';
 
     try {
         await fetch('/api/user/profile', {
@@ -1420,14 +1431,58 @@ async function saveProfile() {
             body: JSON.stringify({ userId: currentUser.id, displayName, bio })
         });
 
-        currentUser.displayName = displayName;
-        currentUser.bio = bio;
-        localStorage.setItem('goalchaser_user', JSON.stringify(currentUser));
+        if (avatarInput.files.length > 0) {
+            await uploadAvatar();
+        } else {
+            currentUser.displayName = displayName;
+            currentUser.bio = bio;
+            localStorage.setItem('goalchaser_user', JSON.stringify(currentUser));
 
-        document.getElementById('app-title').textContent = `Goal Chaser - ${displayName}`;
-        closeProfileModal();
+            document.getElementById('app-title').textContent = `Goal Chaser - ${displayName}`;
+            closeProfileModal();
+        }
     } catch (err) {
         alert('Failed to save profile');
+    }
+}
+
+async function uploadAvatar() {
+    const fileInput = document.getElementById('avatar-input');
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        const base64 = e.target.result;
+        
+        try {
+            await fetch('/api/user/avatar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentUser.id, avatar: base64 })
+            });
+
+            currentUser.avatar = base64;
+            localStorage.setItem('goalchaser_user', JSON.stringify(currentUser));
+            
+            document.getElementById('app-title').textContent = `Goal Chaser - ${currentUser.displayName}`;
+            closeProfileModal();
+            showMainApp();
+        } catch (err) {
+            alert('Failed to upload avatar');
+        }
+    };
+    reader.readAsDataURL(file);
+}
+
+function handleAvatarUpload(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('avatar-preview-large').innerHTML = `<img src="${e.target.result}" alt="Avatar">`;
+        };
+        reader.readAsDataURL(file);
     }
 }
 
@@ -1653,5 +1708,122 @@ async function leaveGroup() {
         loadGroups();
     } catch (err) {
         alert('Failed to leave group');
+    }
+}
+
+let pendingGroupJoin = null;
+
+function openGroupInviteModal() {
+    document.getElementById('group-invite-code-display').textContent = 'Generating...';
+    document.getElementById('group-join-error').classList.add('hidden');
+    document.getElementById('group-invite-modal').classList.remove('hidden');
+    document.getElementById('group-detail-modal').classList.add('hidden');
+
+    fetch('/api/groups/invite/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId: currentGroupId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            const baseUrl = window.location.origin;
+            document.getElementById('group-invite-code-display').textContent = `${baseUrl}/group/${data.inviteCode}`;
+        }
+    })
+    .catch(err => {
+        document.getElementById('group-invite-code-display').textContent = 'Error generating link';
+    });
+}
+
+function closeGroupInviteModal() {
+    document.getElementById('group-invite-modal').classList.add('hidden');
+    document.getElementById('group-detail-modal').classList.remove('hidden');
+}
+
+function copyGroupInviteLink() {
+    const code = document.getElementById('group-invite-code-display').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        const btn = document.getElementById('copy-group-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy Invite Link', 2000);
+    });
+}
+
+async function joinGroupFromCode() {
+    const code = document.getElementById('group-join-code-input').value.trim();
+    const errorEl = document.getElementById('group-join-error');
+
+    if (!code) {
+        errorEl.textContent = 'Please enter a group code';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/groups/invite/${encodeURIComponent(code)}`);
+        const data = await res.json();
+
+        if (data.success) {
+            await fetch(`/api/groups/${data.group.id}/join`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentUser.id })
+            });
+            closeGroupInviteModal();
+            loadGroups();
+            alert(`Joined group: ${data.group.name}!`);
+        } else {
+            errorEl.textContent = data.error || 'Invalid group code';
+            errorEl.classList.remove('hidden');
+        }
+    } catch (err) {
+        errorEl.textContent = 'Failed to join group';
+        errorEl.classList.remove('hidden');
+    }
+}
+
+function showJoinGroupModal(group) {
+    pendingGroupJoin = group;
+    document.getElementById('join-group-desc').textContent = `You have been invited to join "${group.name}"!`;
+    document.getElementById('join-group-modal').classList.remove('hidden');
+}
+
+function closeJoinGroupModal() {
+    document.getElementById('join-group-modal').classList.add('hidden');
+    pendingGroupJoin = null;
+}
+
+async function confirmJoinGroup() {
+    if (!pendingGroupJoin) return;
+
+    try {
+        await fetch(`/api/groups/${pendingGroupJoin.id}/join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: currentUser.id })
+        });
+        closeJoinGroupModal();
+        loadGroups();
+        alert(`Joined group: ${pendingGroupJoin.name}!`);
+    } catch (err) {
+        alert('Failed to join group');
+    }
+}
+
+function checkForGroupInvite() {
+    const path = window.location.pathname;
+    if (path.startsWith('/group/')) {
+        const code = path.replace('/group/', '');
+        setTimeout(() => {
+            fetch(`/api/groups/invite/${encodeURIComponent(code)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        showJoinGroupModal(data.group);
+                    }
+                })
+                .catch(() => {});
+        }, 1000);
     }
 }

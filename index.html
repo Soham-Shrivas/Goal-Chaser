@@ -503,6 +503,14 @@
         <div id="profile-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeProfileModal()">
             <div class="modal-content">
                 <h3>Edit Profile</h3>
+                <div class="avatar-upload-section">
+                    <div class="avatar-preview-large" id="avatar-preview-large"></div>
+                    <label class="avatar-upload-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        Upload Photo
+                        <input type="file" id="avatar-input" accept="image/*" onchange="handleAvatarUpload(event)" hidden>
+                    </label>
+                </div>
                 <input type="text" id="profile-displayname" class="input-dark" placeholder="Display Name">
                 <textarea id="profile-bio" class="input-dark" placeholder="Bio" rows="3"></textarea>
                 <div class="modal-actions">
@@ -564,6 +572,12 @@
                     <h3 id="group-detail-name"></h3>
                     <button class="btn-ghost" onclick="closeGroupDetailModal()">×</button>
                 </div>
+                <div class="group-invite-section">
+                    <button class="btn-secondary full-width" onclick="openGroupInviteModal()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        Share Group Invite Link
+                    </button>
+                </div>
                 <div class="group-members-section">
                     <h4>Members & Study Time</h4>
                     <div id="group-members-list" class="group-members-list"></div>
@@ -574,6 +588,37 @@
                 </div>
                 <div class="modal-actions">
                     <button class="btn-danger-small" onclick="leaveGroup()">Leave Group</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Group Invite Modal -->
+        <div id="group-invite-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeGroupInviteModal()">
+            <div class="modal-content">
+                <h3>Invite to Group</h3>
+                <p class="invite-description">Share this link with friends to join the study group!</p>
+                <div class="invite-code-display" id="group-invite-code-display">Generating...</div>
+                <button class="btn-secondary full-width" onclick="copyGroupInviteLink()" id="copy-group-btn">Copy Invite Link</button>
+                <div class="invite-input-section">
+                    <h4>Or enter a group code:</h4>
+                    <input type="text" id="group-join-code-input" class="input-dark" placeholder="Enter group code (e.g., 1-My Study Group)">
+                    <button class="btn-accent full-width" onclick="joinGroupFromCode()">Join Group</button>
+                </div>
+                <p id="group-join-error" class="invite-error hidden"></p>
+                <div class="modal-actions">
+                    <button class="btn-ghost" onclick="closeGroupInviteModal()">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Join Group from URL Modal -->
+        <div id="join-group-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h3>Join Study Group</h3>
+                <p class="invite-description" id="join-group-desc">You have been invited to join a study group!</p>
+                <div class="modal-actions">
+                    <button class="btn-ghost" onclick="closeJoinGroupModal()">Cancel</button>
+                    <button class="btn-accent" onclick="confirmJoinGroup()">Join Group</button>
                 </div>
             </div>
         </div>

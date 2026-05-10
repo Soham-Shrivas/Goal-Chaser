@@ -36,6 +36,7 @@ async function initDB() {
       password TEXT NOT NULL,
       displayName TEXT,
       bio TEXT DEFAULT '',
+      avatar TEXT DEFAULT '',
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -97,7 +98,7 @@ const users = new Map();
 const userSockets = new Map();
 
 function getUser(id) {
-  const stmt = db.prepare('SELECT id, username, displayName, bio FROM users WHERE id = ?');
+  const stmt = db.prepare('SELECT id, username, displayName, bio, avatar FROM users WHERE id = ?');
   stmt.bind([id]);
   if (stmt.step()) {
     const row = stmt.getAsObject();
@@ -245,6 +246,50 @@ app.post('/api/invite/generate', (req, res) => {
   } else {
     stmt.free();
     res.status(404).json({ error: 'User not found' });
+  }
+});
+
+app.post('/api/user/avatar', (req, res) => {
+  const { userId, avatar } = req.body;
+  db.run('UPDATE users SET avatar = ? WHERE id = ?', [avatar, userId]);
+  saveDB();
+  res.json({ success: true });
+});
+
+app.get('/api/groups/invite/:code', (req, res) => {
+  const code = req.params.code;
+  const parts = code.split('-');
+  if (parts.length < 2) return res.status(400).json({ error: 'Invalid group code' });
+  
+  const groupId = parseInt(parts[0]);
+  const groupName = parts.slice(1).join('-');
+  
+  const stmt = db.prepare('SELECT id, name, createdBy FROM groups WHERE id = ? AND name = ?');
+  stmt.bind([groupId, groupName]);
+  
+  if (stmt.step()) {
+    const group = stmt.getAsObject();
+    stmt.free();
+    res.json({ success: true, group });
+  } else {
+    stmt.free();
+    res.status(404).json({ error: 'Group not found' });
+  }
+});
+
+app.post('/api/groups/invite/generate', (req, res) => {
+  const { groupId } = req.body;
+  const stmt = db.prepare('SELECT id, name FROM groups WHERE id = ?');
+  stmt.bind([groupId]);
+  
+  if (stmt.step()) {
+    const group = stmt.getAsObject();
+    stmt.free();
+    const inviteCode = `${group.id}-${group.name}`;
+    res.json({ success: true, inviteCode, groupName: group.name });
+  } else {
+    stmt.free();
+    res.status(404).json({ error: 'Group not found' });
   }
 });
 
