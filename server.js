@@ -557,6 +557,61 @@ app.get('/api/groups/:groupId/study-time', (req, res) => {
   res.json(studyTimes);
 });
 
+app.get('/api/admin/users', (req, res) => {
+  const stmt = db.prepare(`
+    SELECT u.id, u.username, u.displayName, u.bio, u.avatar, u.createdAt,
+           COALESCE(SUM(ss.seconds), 0) as totalStudyTime,
+           COUNT(DISTINCT ss.id) as sessionCount,
+           (SELECT COUNT(*) FROM friends WHERE userId = u.id OR friendId = u.id) as friendCount
+    FROM users u
+    LEFT JOIN study_sessions ss ON ss.userId = u.id
+    GROUP BY u.id
+    ORDER BY u.id DESC
+  `);
+  const users = [];
+  while (stmt.step()) {
+    users.push(stmt.getAsObject());
+  }
+  stmt.free();
+  res.json(users);
+});
+
+app.get('/api/admin/all-sessions', (req, res) => {
+  const stmt = db.prepare(`
+    SELECT ss.*, u.username, u.displayName, g.name as groupName
+    FROM study_sessions ss
+    JOIN users u ON u.id = ss.userId
+    LEFT JOIN groups g ON g.id = ss.groupId
+    ORDER BY ss.startTime DESC
+    LIMIT 100
+  `);
+  const sessions = [];
+  while (stmt.step()) {
+    sessions.push(stmt.getAsObject());
+  }
+  stmt.free();
+  res.json(sessions);
+});
+
+app.post('/api/admin/update-user', (req, res) => {
+  const { userId, displayName, bio, action } = req.body;
+  
+  if (action === 'delete') {
+    db.run('DELETE FROM messages WHERE senderId = ? OR receiverId = ?', [userId, userId]);
+    db.run('DELETE FROM friends WHERE userId = ? OR friendId = ?', [userId, userId]);
+    db.run('DELETE FROM study_sessions WHERE userId = ?', [userId]);
+    db.run('DELETE FROM group_members WHERE userId = ?', [userId]);
+    db.run('DELETE FROM groups WHERE createdBy = ?', [userId]);
+    db.run('DELETE FROM users WHERE id = ?', [userId]);
+    saveDB();
+    res.json({ success: true, message: 'User deleted' });
+  } else {
+    db.run('UPDATE users SET displayName = ?, bio = ? WHERE id = ?', [displayName || '', bio || '', userId]);
+    saveDB();
+    res.json({ success: true, message: 'User updated' });
+  }
+});
+
 const studyingUsers = new Map();
 
 io.on('connection', (socket) => {

@@ -85,6 +85,120 @@ function switchTab(tab) {
         if (!currentUser) return;
         loadGroups();
     }
+    if (tab === 'admin') {
+        loadAdminUsers();
+        loadAdminSessions();
+    }
+}
+
+function switchAdminTab(tab) {
+    document.querySelectorAll('.admin-tab').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.admin-tab[data-admin-tab="${tab}"]`).classList.add('active');
+    
+    document.querySelectorAll('.admin-section').forEach(el => el.classList.add('hidden'));
+    document.getElementById(`admin-${tab}-section`).classList.remove('hidden');
+}
+
+async function loadAdminUsers() {
+    try {
+        const res = await fetch('/api/admin/users');
+        const users = await res.json();
+
+        const totalTime = users.reduce((sum, u) => sum + (u.totalStudyTime || 0), 0);
+        const statsHtml = `
+            <div class="admin-stat-card">
+                <div class="admin-stat-value">${users.length}</div>
+                <div class="admin-stat-label">Total Users</div>
+            </div>
+            <div class="admin-stat-card">
+                <div class="admin-stat-value">${formatDuration(totalTime)}</div>
+                <div class="admin-stat-label">Total Study Time</div>
+            </div>
+            <div class="admin-stat-card">
+                <div class="admin-stat-value">${users.reduce((sum, u) => sum + (u.sessionCount || 0), 0)}</div>
+                <div class="admin-stat-label">Total Sessions</div>
+            </div>
+        `;
+        document.getElementById('admin-stats').innerHTML = statsHtml;
+
+        const list = document.getElementById('admin-users-list');
+        list.innerHTML = users.map(u => {
+            const avatarHtml = getAvatarHTML(u.avatar, u.displayName || u.username);
+            const initials = getAvatarInitials(u.avatar, u.displayName || u.username);
+            return `
+            <div class="admin-user-card">
+                <div class="admin-user-avatar">
+                    ${avatarHtml || initials}
+                </div>
+                <div class="admin-user-info">
+                    <div class="admin-user-name">${escapeHtml(u.displayName || u.username)}</div>
+                    <div class="admin-user-username">@${escapeHtml(u.username)}</div>
+                    <div class="admin-user-stats">
+                        <span class="admin-user-stat">Study: <span>${formatDuration(u.totalStudyTime || 0)}</span></span>
+                        <span class="admin-user-stat">Sessions: <span>${u.sessionCount || 0}</span></span>
+                        <span class="admin-user-stat">Friends: <span>${u.friendCount || 0}</span></span>
+                    </div>
+                </div>
+                <div class="admin-user-actions">
+                    <div class="admin-focus-edit">
+                        <input type="number" id="focus-${u.id}" value="25" min="5" max="120" placeholder="min">
+                        <button class="btn-accent-small" onclick="updateUserFocus(${u.id})">Set</button>
+                    </div>
+                    <button class="btn-danger-small" onclick="deleteUser(${u.id})">Delete</button>
+                </div>
+            </div>
+        `}).join('');
+    } catch (err) {
+        console.error('Failed to load admin users:', err);
+    }
+}
+
+async function loadAdminSessions() {
+    try {
+        const res = await fetch('/api/admin/all-sessions');
+        const sessions = await res.json();
+
+        const list = document.getElementById('admin-sessions-list');
+        if (sessions.length === 0) {
+            list.innerHTML = '<div class="no-results">No sessions yet</div>';
+        } else {
+            list.innerHTML = sessions.map(s => `
+                <div class="admin-session-item">
+                    <span class="admin-session-user">${escapeHtml(s.displayName || s.username)}</span>
+                    <span class="admin-session-time">${new Date(s.startTime).toLocaleString()}</span>
+                    <span class="admin-session-duration">${formatDuration(s.seconds)}</span>
+                    ${s.groupName ? `<span class="admin-session-group">Group: ${escapeHtml(s.groupName)}</span>` : ''}
+                </div>
+            `).join('');
+        }
+    } catch (err) {
+        console.error('Failed to load admin sessions:', err);
+    }
+}
+
+async function updateUserFocus(userId) {
+    const focusTime = document.getElementById(`focus-${userId}`).value;
+    alert(`Focus time for user ${userId} would be set to ${focusTime} minutes (Demo feature)`);
+}
+
+async function deleteUser(userId) {
+    if (!confirm('Are you sure you want to DELETE this user? This cannot be undone!')) return;
+    if (!confirm('This will delete all their data including messages, friends, and study sessions. Continue?')) return;
+
+    try {
+        const res = await fetch('/api/admin/update-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, action: 'delete' })
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('User deleted successfully');
+            loadAdminUsers();
+        }
+    } catch (err) {
+        alert('Failed to delete user');
+    }
 }
 
 let editingSubjectId = null;
