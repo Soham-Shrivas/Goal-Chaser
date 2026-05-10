@@ -1157,8 +1157,39 @@ async function loadFriends() {
         }
 
         loadFriendRequests();
+        loadRecommendations();
     } catch (err) {
         console.error('Failed to load friends:', err);
+    }
+}
+
+async function loadRecommendations() {
+    if (!currentUser) return;
+
+    try {
+        const res = await fetch(`/api/users/recommendations/${currentUser.id}`);
+        const recommendations = await res.json();
+
+        const section = document.getElementById('recommendations-section');
+        const list = document.getElementById('recommendations-list');
+
+        if (recommendations.length === 0) {
+            section.classList.add('hidden');
+        } else {
+            section.classList.remove('hidden');
+            list.innerHTML = recommendations.map(u => `
+                <div class="recommendation-item">
+                    <div class="recommendation-avatar">${getInitials(u.displayName || u.username)}</div>
+                    <div class="recommendation-info">
+                        <span class="recommendation-name">${escapeHtml(u.displayName || u.username)}</span>
+                        <span class="recommendation-username">@${escapeHtml(u.username)}</span>
+                    </div>
+                    <button class="btn-accent-small" onclick="addFriend(${u.id})">Add</button>
+                </div>
+            `).join('');
+        }
+    } catch (err) {
+        console.error('Failed to load recommendations:', err);
     }
 }
 
@@ -1265,6 +1296,76 @@ async function removeFriend(friendId) {
         loadFriends();
     } catch (err) {
         alert('Failed to remove friend');
+    }
+}
+
+async function openInviteModal() {
+    document.getElementById('invite-error').classList.add('hidden');
+    document.getElementById('invite-code-display').textContent = 'Generating...';
+    document.getElementById('invite-modal').classList.remove('hidden');
+
+    try {
+        const res = await fetch('/api/invite/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: currentUser.id })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            const baseUrl = window.location.origin;
+            document.getElementById('invite-code-display').textContent = `${baseUrl}/invite/${data.inviteCode}`;
+        }
+    } catch (err) {
+        document.getElementById('invite-code-display').textContent = 'Error generating link';
+    }
+}
+
+function closeInviteModal() {
+    document.getElementById('invite-modal').classList.add('hidden');
+    document.getElementById('invite-link-input').value = '';
+    document.getElementById('invite-error').classList.add('hidden');
+}
+
+function copyInviteLink() {
+    const code = document.getElementById('invite-code-display').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy Invite Link', 2000);
+    });
+}
+
+async function acceptInviteLink() {
+    const code = document.getElementById('invite-link-input').value.trim();
+    const errorEl = document.getElementById('invite-error');
+    
+    if (!code) {
+        errorEl.textContent = 'Please enter an invite code';
+        errorEl.classList.remove('hidden');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/user/by-invite/${encodeURIComponent(code)}`);
+        const data = await res.json();
+
+        if (data.success) {
+            if (data.user.id === currentUser.id) {
+                errorEl.textContent = "You can't add yourself!";
+                errorEl.classList.remove('hidden');
+                return;
+            }
+            await addFriend(data.user.id);
+            closeInviteModal();
+            alert(`Added ${data.user.displayName || data.user.username} as friend!`);
+        } else {
+            errorEl.textContent = data.error || 'Invalid invite code';
+            errorEl.classList.remove('hidden');
+        }
+    } catch (err) {
+        errorEl.textContent = 'Failed to connect. Please check the code.';
+        errorEl.classList.remove('hidden');
     }
 }
 

@@ -1746,3 +1746,120 @@ input[type="date"].input-dark {
     padding: 6px 12px;
     font-size: 0.8rem;
 }
+
+.btn-secondary {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-medium);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all var(--transition-fast);
+}
+
+.btn-secondary:hover {
+    background: var(--bg-card-hover);
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.recommendations-section {
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    margin-bottom: 16px;
+}
+
+.recommendations-section h4 {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.recommendations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.recommendation-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-sm);
+}
+
+.recommendation-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    background: var(--accent-cyan);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.recommendation-info {
+    flex: 1;
+}
+
+.recommendation-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.recommendation-username {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.invite-description {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.invite-code-display {
+    background: var(--bg-elevated);
+    border: 2px dashed var(--accent-purple);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--accent-purple);
+    margin-bottom: 12px;
+    word-break: break-all;
+}
+
+.invite-input-section {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-subtle);
+}
+
+.invite-input-section h4 {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.invite-error {
+    color: var(--accent-red);
+    font-size: 0.8rem;
+    margin-top: 8px;
+    text-align: center;
+}

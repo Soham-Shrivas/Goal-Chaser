@@ -188,6 +188,88 @@ app.get('/api/users/search', (req, res) => {
   res.json(results);
 });
 
+app.get('/api/users/recommendations/:userId', (req, res) => {
+  const userId = parseInt(req.params.userId);
+  
+  const stmt = db.prepare(`
+    SELECT u.id, u.username, u.displayName, u.bio
+    FROM users u
+    WHERE u.id != ?
+    AND u.id NOT IN (
+      SELECT friendId FROM friends WHERE userId = ? AND status = 'accepted'
+      UNION
+      SELECT userId FROM friends WHERE friendId = ? AND status = 'accepted'
+    )
+    LIMIT 10
+  `);
+  stmt.bind([userId, userId, userId]);
+  const recommendations = [];
+  while (stmt.step()) {
+    recommendations.push(stmt.getAsObject());
+  }
+  stmt.free();
+  res.json(recommendations);
+});
+
+app.get('/api/user/by-invite/:code', (req, res) => {
+  const code = req.params.code;
+  const parts = code.split('-');
+  if (parts.length !== 2) return res.status(400).json({ error: 'Invalid invite code' });
+  
+  const userId = parseInt(parts[0]);
+  const username = parts[1];
+  
+  const stmt = db.prepare('SELECT id, username, displayName FROM users WHERE id = ? AND username = ?');
+  stmt.bind([userId, username]);
+  
+  if (stmt.step()) {
+    const user = stmt.getAsObject();
+    stmt.free();
+    res.json({ success: true, user });
+  } else {
+    stmt.free();
+    res.status(404).json({ error: 'User not found' });
+  }
+});
+
+app.post('/api/invite/generate', (req, res) => {
+  const { userId } = req.body;
+  const stmt = db.prepare('SELECT id, username FROM users WHERE id = ?');
+  stmt.bind([userId]);
+  
+  if (stmt.step()) {
+    const user = stmt.getAsObject();
+    stmt.free();
+    const inviteCode = `${user.id}-${user.username}`;
+    res.json({ success: true, inviteCode, username: user.username });
+  } else {
+    stmt.free();
+    res.status(404).json({ error: 'User not found' });
+  }
+});
+
+app.get('/api/all-users', (req, res) => {
+  const { exclude } = req.query;
+  let query = 'SELECT id, username, displayName FROM users';
+  let params = [];
+  
+  if (exclude) {
+    const excludeIds = exclude.split(',').map(Number);
+    const placeholders = excludeIds.map(() => '?').join(',');
+    query += ` WHERE id NOT IN (${placeholders})`;
+    params = excludeIds;
+  }
+  
+  const stmt = db.prepare(query);
+  stmt.bind(params);
+  const users = [];
+  while (stmt.step()) {
+    users.push(stmt.getAsObject());
+  }
+  stmt.free();
+  res.json(users);
+});
+
 app.get('/api/friends/:userId', (req, res) => {
   const userId = parseInt(req.params.userId);
   const stmt = db.prepare(`
