@@ -1147,8 +1147,28 @@ function showMainApp() {
     document.getElementById('app-header').classList.remove('hidden');
     document.getElementById('main-content').classList.remove('hidden');
     document.getElementById('bottom-nav').classList.remove('hidden');
+    document.getElementById('app-header').classList.remove('hidden');
 
-    document.getElementById('app-title').textContent = `Goal Chaser${currentUser ? ' - ' + currentUser.displayName : ''}`;
+    const avatarHtml = currentUser.avatar ? `<img src="${currentUser.avatar}" style="width:24px;height:24px;border-radius:50%;vertical-align:middle;margin-right:8px;">` : '';
+    document.getElementById('app-title').innerHTML = `Goal Chaser${currentUser ? ' - ' + avatarHtml + currentUser.displayName : ''}`;
+}
+
+function logout() {
+    if (!confirm('Logout and switch account?')) return;
+    
+    currentUser = null;
+    localStorage.removeItem('goalchaser_user');
+    
+    if (socket) {
+        socket.disconnect();
+    }
+    
+    showAuthScreen();
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+    document.getElementById('reg-username').value = '';
+    document.getElementById('reg-displayname').value = '';
+    document.getElementById('reg-password').value = '';
 }
 
 function showRegister() {
@@ -1212,6 +1232,16 @@ async function register() {
         return;
     }
 
+    if (username.length < 3) {
+        showAuthError('Username must be at least 3 characters');
+        return;
+    }
+
+    if (password.length < 4) {
+        showAuthError('Password must be at least 4 characters');
+        return;
+    }
+
     try {
         const res = await fetch('/api/register', {
             method: 'POST',
@@ -1225,7 +1255,19 @@ async function register() {
             return;
         }
 
-        currentUser = { id: data.userId, username, displayName };
+        const loginRes = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const loginData = await loginRes.json();
+
+        if (!loginRes.ok) {
+            showAuthError('Registration successful but login failed');
+            return;
+        }
+
+        currentUser = loginData.user;
         localStorage.setItem('goalchaser_user', JSON.stringify(currentUser));
         showMainApp();
         initSocket();
