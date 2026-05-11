@@ -710,6 +710,15 @@ io.on('connection', (socket) => {
 });
 
 initDB().then(() => {
+  const bcrypt = require('bcryptjs');
+  const adminCheck = db.exec("SELECT id FROM users WHERE username = 'admin'");
+  if (adminCheck.length === 0 || adminCheck[0].values.length === 0) {
+    const hashedPassword = bcrypt.hashSync('admin123', 10);
+    db.run('INSERT INTO users (username, password, displayName) VALUES (?, ?, ?)', ['admin', hashedPassword, 'Administrator']);
+    saveDB();
+    console.log('Admin account created: admin / admin123');
+  }
+  
   const PORT = process.env.PORT || 3000;
   server.listen(PORT, () => {
     console.log(`Goal Chaser server running on http://localhost:${PORT}`);
