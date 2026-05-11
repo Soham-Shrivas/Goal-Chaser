@@ -1,0 +1,5 @@
+node_modules/
+goalchaser.db
+*.db
+sql-wasm.wasm
+.DS_Store
