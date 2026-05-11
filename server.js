@@ -48,6 +48,10 @@ async function initDB() {
       createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  try {
+    db.run('ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT ""');
+  } catch(e) {}
   db.run(`
     CREATE TABLE IF NOT EXISTS friends (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
