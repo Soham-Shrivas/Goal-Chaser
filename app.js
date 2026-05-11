@@ -21,6 +21,7 @@ let timerState = {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadState();
+    showAuthScreen();
     renderDate();
     renderSubjectChips();
     updateSubjectSelects();
@@ -39,15 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function loadState() {
-    try {
-        const saved = localStorage.getItem('goal-chaser-state');
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            state = { ...state, ...parsed };
-        }
-    } catch (e) {
-        console.warn('Failed to load state:', e);
-    }
+    localStorage.removeItem('goal-chaser-state');
+    localStorage.removeItem('goalchaser_user');
+    state.currentUser = null;
+    state.friends = [];
+    state.groups = [];
+    state.sessions = [];
 }
 
 function saveState() {
